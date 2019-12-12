@@ -1,0 +1,13 @@
+# Source-me
+
+USER_ID=$(id -u)
+GROUP_ID=$(id -g)
+if test x"$USER_ID" != x0; then
+    NSS_WRAPPER_PASSWD=/tmp/passwd
+    NSS_WRAPPER_GROUP=/etc/group
+    cat /etc/passwd | sed -e 's/^default:/builder:/' >$NSS_WRAPPER_PASSWD
+    echo "default:x:${USER_ID}:${GROUP_ID}:Default Application User:${HOME}:/sbin/nologin" >>$NSS_WRAPPER_PASSWD
+    export NSS_WRAPPER_PASSWD
+    export NSS_WRAPPER_GROUP
+    export LD_PRELOAD=/usr/lib64/libnss_wrapper.so
+fi
