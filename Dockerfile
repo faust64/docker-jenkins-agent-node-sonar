@@ -71,7 +71,7 @@ RUN if test "$HTTP_PROXY"; then \
 
 # Install Sonar Runner
 RUN mkdir -p /opt \
-    && wget http://repo1.maven.org/maven2/org/codehaus/sonar/runner/sonar-runner-dist/${SONAR_RUNNER_VERSION}/sonar-runner-dist-${SONAR_RUNNER_VERSION}.zip \
+    && wget https://repo1.maven.org/maven2/org/codehaus/sonar/runner/sonar-runner-dist/${SONAR_RUNNER_VERSION}/sonar-runner-dist-${SONAR_RUNNER_VERSION}.zip \
     && unzip sonar-runner-dist-${SONAR_RUNNER_VERSION}.zip \
     && mv sonar-runner-${SONAR_RUNNER_VERSION} /opt/sonar-runner \
     && rm -rf sonar-runner-dist-${SONAR_RUNNER_VERSION}.zip /opt/sonar-runner/conf/sonar-runner.properties \
