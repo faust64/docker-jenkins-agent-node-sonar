@@ -1,16 +1,17 @@
-FROM registry.access.redhat.com/openshift3/jenkins-slave-base-rhel7
+FROM openshift/jenkins-slave-base-centos7
 
 ENV BASH_ENV=/usr/local/bin/scl_enable \
     ENV=/usr/local/bin/scl_enable \
     NODEJS_VERSION=8 \
     NPM_CONFIG_PREFIX=$HOME/.npm-global \
     PATH=$HOME/node_modules/.bin/:$HOME/.npm-global/bin/:$PATH \
+    PHP_VERSION=7.4 \
     PROMPT_COMMAND=". /usr/local/bin/scl_enable" \
     SONAR_RUNNER_HOME=/opt/sonar-runner \
     SONAR_RUNNER_VERSION=2.4 \
     YARN_VERSION=1.15.2
 
-LABEL com.redhat.component="jenkins-agent-nodejs-${NODEJS_VERSION}-sonar${SONAR_RUNNER_VERSION}-rhel7-container" \
+LABEL com.redhat.component="jenkins-agent-nodejs-${NODEJS_VERSION}-sonar${SONAR_RUNNER_VERSION}-centos7-container" \
       io.k8s.description="The jenkins agent nodejs image has the nodejs tools on top of the jenkins slave base image." \
       io.k8s.display-name="Jenkins Agent - Node.js ${NODEJS_VERSION} - Sonar scanner" \
       io.openshift.tags="openshift,jenkins,agent,nodejs${NODEJS_VERSION},sonar${SONAR_RUNNER_VERSION},nodejs,sonar" \
@@ -22,22 +23,23 @@ LABEL com.redhat.component="jenkins-agent-nodejs-${NODEJS_VERSION}-sonar${SONAR_
 
 COPY config/* /usr/local/bin/
 
-# Install NodeJS
+# Install NodeJS & PHP
 RUN rm -f /usr/local/bin/el8.repo \
     && if test "$DO_UPGRADE"; then \
 	yum -y upgrade; \
     fi \
-    && yum-config-manager --enable rhel-server-rhscl-7-rpms \    
-    && yum-config-manager --enable rhel-7-server-optional-rpms \
-    && yum-config-manager --enable rhel-server-rhscl-8-rpms \ 
-    && yum-config-manager --enable rhel-8-server-optional-rpms \
-    && ( yum-config-manager --disable epel >/dev/null || true ) \
-    && yum install -y --setopt=tsflags=nodocs rh-nodejs${NODEJS_VERSION} \
-	rh-nodejs${NODEJS_VERSION}-nodejs-nodemon make gcc-c++ subversion \
-	mercurial git wget curl unzip openssh ca-certificates procps-ng bash \
-	openssl-devel nss_wrapper \
+    && yum install -y centos-release-scl-rh \
+    && yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm \
+    && yum install -y https://rpms.remirepo.net/enterprise/remi-release-7.rpm \
+    && yum install -y --setopt=tsflags=nodocs rh-nodejs$NODEJS_VERSION \
+	rh-nodejs$NODEJS_VERSION-npm mercurial git wget curl unzip openssh \
+	rh-nodejs$NODEJS_VERSION-nodejs-nodemon make gcc-c++ subversion \
+	ca-certificates procps-ng bash openssl-devel nss_wrapper \
+    && yum install -y \
+	--enablerepo=remi-php`echo $PHP_VERSION | sed 's|^\([1-9]*\)\.\([0-9]*\).*|\1\2|'` \
+	php php-cli \
     && wget -O /usr/src/yarn.tar.gz \
-	https://github.com/yarnpkg/yarn/releases/download/v${YARN_VERSION}/yarn-v${YARN_VERSION}.tar.gz \
+	https://github.com/yarnpkg/yarn/releases/download/v$YARN_VERSION/yarn-v$YARN_VERSION.tar.gz \
     && tar -C /opt -xzf /usr/src/yarn.tar.gz \
     && rm -f /usr/src/yarn.tar.gz \
     && ln -s /usr/lib/node_modules/nodemon/bin/nodemon.js /usr/bin/nodemon \

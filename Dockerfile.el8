@@ -1,16 +1,18 @@
-FROM registry.access.redhat.com/openshift3/jenkins-slave-base-rhel7
+FROM quay.io/openshift/origin-jenkins-agent-base:latest
 
 ENV BASH_ENV=/usr/local/bin/scl_enable \
     ENV=/usr/local/bin/scl_enable \
-    NODEJS_VERSION=8 \
+    NODEJS_VERSION=12 \
     NPM_CONFIG_PREFIX=$HOME/.npm-global \
     PATH=$HOME/node_modules/.bin/:$HOME/.npm-global/bin/:$PATH \
+    PHP_VERSION=7.4 \
     PROMPT_COMMAND=". /usr/local/bin/scl_enable" \
     SONAR_RUNNER_HOME=/opt/sonar-runner \
     SONAR_RUNNER_VERSION=2.4 \
-    YARN_VERSION=1.15.2
+    YARN_URL=https://github.com/yarnpkg/yarn/releases/download \
+    YARN_VERSION=1.22.10
 
-LABEL com.redhat.component="jenkins-agent-nodejs-${NODEJS_VERSION}-sonar${SONAR_RUNNER_VERSION}-rhel7-container" \
+LABEL com.redhat.component="jenkins-agent-nodejs-${NODEJS_VERSION}-sonar${SONAR_RUNNER_VERSION}-centos8-container" \
       io.k8s.description="The jenkins agent nodejs image has the nodejs tools on top of the jenkins slave base image." \
       io.k8s.display-name="Jenkins Agent - Node.js ${NODEJS_VERSION} - Sonar scanner" \
       io.openshift.tags="openshift,jenkins,agent,nodejs${NODEJS_VERSION},sonar${SONAR_RUNNER_VERSION},nodejs,sonar" \
@@ -22,28 +24,30 @@ LABEL com.redhat.component="jenkins-agent-nodejs-${NODEJS_VERSION}-sonar${SONAR_
 
 COPY config/* /usr/local/bin/
 
-# Install NodeJS
-RUN rm -f /usr/local/bin/el8.repo \
+# Install NodeJS & PHP
+RUN rm /etc/yum.repos.d/*.repo \
+    && mv /usr/local/bin/el8.repo /etc/yum.repos.d/ \
+    && ln -sf /usr/bin/true /usr/sbin/suexec \
+    && dnf -y install epel-release \
     && if test "$DO_UPGRADE"; then \
-	yum -y upgrade; \
+	dnf -y upgrade; \
     fi \
-    && yum-config-manager --enable rhel-server-rhscl-7-rpms \    
-    && yum-config-manager --enable rhel-7-server-optional-rpms \
-    && yum-config-manager --enable rhel-server-rhscl-8-rpms \ 
-    && yum-config-manager --enable rhel-8-server-optional-rpms \
-    && ( yum-config-manager --disable epel >/dev/null || true ) \
-    && yum install -y --setopt=tsflags=nodocs rh-nodejs${NODEJS_VERSION} \
-	rh-nodejs${NODEJS_VERSION}-nodejs-nodemon make gcc-c++ subversion \
-	mercurial git wget curl unzip openssh ca-certificates procps-ng bash \
-	openssl-devel nss_wrapper \
-    && wget -O /usr/src/yarn.tar.gz \
-	https://github.com/yarnpkg/yarn/releases/download/v${YARN_VERSION}/yarn-v${YARN_VERSION}.tar.gz \
-    && tar -C /opt -xzf /usr/src/yarn.tar.gz \
-    && rm -f /usr/src/yarn.tar.gz \
+    && yum -y module reset nodejs \
+    && yum -y module enable nodejs:$NODEJS_VERSION \
+    && yum install -y --setopt=tsflags=nodocs mysql postgresql mercurial  \
+	perl openssl openssl-devel git bzip2 gzip tar wget curl unzip make \
+	nss_wrapper jq gcc gcc-c++ nodejs npm ca-certificates openssh \
+	subversion bash procps-ng bash openssl-devel nss_wrapper \
+    && curl --location \
+	"$YARN_URL/v$YARN_VERSION/yarn-v$YARN_VERSION.tar.gz" \
+	-o- | tar -C /opt -xzf - \
+    && dnf -y install https://rpms.remirepo.net/enterprise/remi-release-8.rpm \
+    && dnf -y module reset php \
+    && dnf -y module enable php:remi-$PHP_VERSION \
+    && dnf -y install php-cli \
     && ln -s /usr/lib/node_modules/nodemon/bin/nodemon.js /usr/bin/nodemon \
-    && yum clean all -y \
+    && dnf -y clean all --enablerepo='*'\
     && rm -fr /var/cache/yum
-ENV PATH=/opt/rh/rh-nodejs8/root/usr/bin:/opt/yarn-v${YARN_VERSION}/bin:$PATH
 
 # Setup NodeJS modules - Fix Java
 RUN if test "$HTTP_PROXY"; then \
